@@ -15,7 +15,7 @@ enum course {
 struct Student {
     char first_name[MAX_LEN];
     char last_name[MAX_LEN];
-    char telephone[LEVELS]; 
+    char telephone[LEVELS];
     int grades[NUM_CLASSES];
     char* Course[NUM_CLASSES];
 };
@@ -35,15 +35,11 @@ void free_memory();
 struct School s;
 
 int main() {
-	
-	// Initialize the database
+    // Initialize the database
     init_db();
-	
+
     // Read from the file
     read_db();
-
-    // Insert data to the database
-    insert_to_db();
 
     print_db();
 
@@ -55,7 +51,7 @@ int main() {
 
 void read_db() {
     FILE* fp;
-    char line[MAX_LEN * 16]; 
+    char line[MAX_LEN * 16];
     char first_name[MAX_LEN];
     char last_name[MAX_LEN];
     char telephone[12];
@@ -70,8 +66,8 @@ void read_db() {
     }
 
     while (fgets(line, sizeof(line), fp) != NULL) {
-        
-        
+        line_count++;
+
         int items_read = sscanf(line, "%s %s %s %d %d %d %d %d %d %d %d %d %d %d %d",
                                first_name, last_name, telephone,
                                &level, &class_index,
@@ -80,12 +76,7 @@ void read_db() {
 
         if (items_read != 15) {
             fprintf(stderr, "Error reading line %d: Incorrect data format.\n", line_count);
-            continue; 
-        }
-
-        if (level < 1 || level > LEVELS || class_index < 0 || class_index >= NUM_CLASSES) {
-            fprintf(stderr, "Error reading line %d: Invalid level or class.\n", line_count);
-            continue; 
+            continue;
         }
 
         // Validate grades
@@ -99,6 +90,10 @@ void read_db() {
 
         // Allocate memory for the student object
         struct Student* new_student = (struct Student*)malloc(sizeof(struct Student));
+        if (new_student == NULL) {
+            fprintf(stderr, "Error: Memory allocation failed.\n");
+            exit(EXIT_FAILURE);
+        }
 
         // Copy data to the student object
         strncpy(new_student->first_name, first_name, MAX_LEN);
@@ -121,8 +116,6 @@ void read_db() {
     fclose(fp);
 }
 
-
-
 void init_db() {
     int i, j;
     for (i = 0; i < LEVELS; i++) {
@@ -132,12 +125,9 @@ void init_db() {
     }
 }
 
-void insert_to_db() {
-   
-}
-
 void print_db() {
     int i, j, k;
+
     for (i = 0; i < LEVELS; i++) {
         for (j = 0; j < NUM_CLASSES; j++) {
             if (s.DB[i][j] != NULL) {
@@ -145,15 +135,16 @@ void print_db() {
                 printf("First Name: %s, Last Name: %s, Telephone: %s\n",
                        s.DB[i][j]->first_name, s.DB[i][j]->last_name, s.DB[i][j]->telephone);
 
-                printf("Courses: ");
+                printf("Grades: ");
                 for (k = 0; k < NUM_CLASSES; k++) {
-                    printf("%c ", s.DB[i][j]->Course[k][0]);
+                    printf("%d ", s.DB[i][j]->grades[k]);
                 }
                 printf("\n\n");
             }
         }
     }
 }
+
 
 void free_memory() {
     int i, j, k;
@@ -168,4 +159,3 @@ void free_memory() {
         }
     }
 }
-
