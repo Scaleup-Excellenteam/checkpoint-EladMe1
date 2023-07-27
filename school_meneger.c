@@ -32,6 +32,8 @@ void delete_from_db();
 void print_db();
 void free_memory();
 void display_menu();
+void edit_student_info();
+void search_student();
 
 // Global variable
 static struct School s;
@@ -55,8 +57,10 @@ void display_menu() {
         printf("\nMenu\n");
         printf("1. Admission of a new student\n");
         printf("2. Deleting a student\n");
-        printf("3. Print database\n");
-        printf("4. Exit\n");
+        printf("3. Edit student information\n");
+        printf("4. Search for a student by first and last name\n");
+        printf("5. Print database\n");
+        printf("6. Exit\n");
         printf("Enter your choice: ");
         scanf("%d", &choice);
 
@@ -68,16 +72,23 @@ void display_menu() {
                 delete_from_db();
                 break;
             case 3:
-                print_db();
+                edit_student_info();
                 break;
             case 4:
+                search_student();
+                break;
+            case 5:
+                print_db();
+                break;
+            case 6:
                 printf("Exiting the program.\n");
                 break;
             default:
                 printf("Invalid choice. Please try again.\n");
         }
-    } while (choice != 4);
+    } while (choice != 6);
 }
+
 
 void read_db() {
     FILE* fp;
@@ -114,7 +125,7 @@ void read_db() {
         for (i = 0; i < NUM_CLASSES; i++) {
             if (grades[i] < 0 || grades[i] > 100) {
                 fprintf(stderr, "Error reading line %d: Invalid grade.\n", line_count);
-                continue; // Skip to the next line
+                continue; 
             }
         }
 
@@ -221,6 +232,111 @@ void insert_to_db() {
     printf("Student added successfully.\n");
 }
 
+void edit_student_info() {
+    char first_name[MAX_LEN];
+    char last_name[MAX_LEN];
+
+    printf("Enter student's first name: ");
+    scanf("%s", first_name);
+
+    printf("Enter student's last name: ");
+    scanf("%s", last_name);
+
+    int level, class_index;
+
+    printf("Enter level of the student: ");
+    scanf("%d", &level);
+
+    if (level < 1 || level > LEVELS) {
+        printf("Invalid level. Level must be between 1 and %d.\n", LEVELS);
+        return;
+    }
+
+    printf("Enter class of the student: ");
+    scanf("%d", &class_index);
+
+    if (class_index < 0 || class_index >= NUM_CLASSES) {
+        printf("Invalid class index. Class must be between 0 and %d.\n", NUM_CLASSES - 1);
+        return;
+    }
+
+    if (s.DB[level - 1][class_index] != NULL) {
+        if (strcmp(s.DB[level - 1][class_index]->first_name, first_name) == 0 &&
+            strcmp(s.DB[level - 1][class_index]->last_name, last_name) == 0) {
+
+            int subject;
+            printf("Enter the subject to update the grade (0-9): ");
+            scanf("%d", &subject);
+
+            if (subject < 0 || subject >= NUM_CLASSES) {
+                printf("Invalid subject index. Subject must be between 0 and %d.\n", NUM_CLASSES - 1);
+                return;
+            }
+
+            int new_grade;
+            printf("Enter the new grade: ");
+            scanf("%d", &new_grade);
+
+            if (new_grade < 0 || new_grade > 100) {
+                printf("Invalid grade. Grade must be between 0 and 100.\n");
+                return;
+            }
+
+            // Update the grade
+            s.DB[level - 1][class_index]->grades[subject] = new_grade;
+
+            printf("Grade updated successfully for student '%s %s' in class %c.\n", first_name, last_name, class_index + 'A');
+        } else {
+            printf("Student '%s %s' not found in class %c.\n", first_name, last_name, class_index + 'A');
+        }
+    } else {
+        printf("No student found at the specified level and class.\n");
+    }
+}
+
+void search_student() {
+    char first_name[MAX_LEN];
+    char last_name[MAX_LEN];
+
+    printf("Enter student's first name: ");
+    scanf("%s", first_name);
+
+    printf("Enter student's last name: ");
+    scanf("%s", last_name);
+
+    bool found = false;
+	int i,j,k;
+    for (i = 0; i < LEVELS; i++) {
+        for (j = 0; j < NUM_CLASSES; j++) {
+            if (s.DB[i][j] != NULL &&
+                strcmp(s.DB[i][j]->first_name, first_name) == 0 &&
+                strcmp(s.DB[i][j]->last_name, last_name) == 0) {
+
+                printf("Student found:\n");
+                printf("First Name: %s, Last Name: %s, Telephone: %s\n",
+                       s.DB[i][j]->first_name, s.DB[i][j]->last_name, s.DB[i][j]->telephone);
+
+                printf("Class: %c\n", j + 'A');
+
+                printf("Grades: ");
+                for (k = 0; k < NUM_CLASSES; k++) {
+                    printf("%d ", s.DB[i][j]->grades[k]);
+                }
+                printf("\n");
+
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            break;
+        }
+    }
+
+    if (!found) {
+        printf("Student '%s %s' not found in the database.\n", first_name, last_name);
+    }
+}
 
 void delete_from_db() {
     char first_name[MAX_LEN];
