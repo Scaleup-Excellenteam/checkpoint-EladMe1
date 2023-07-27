@@ -18,6 +18,7 @@ struct Student {
     char telephone[LEVELS];
     int grades[NUM_CLASSES];
     char* Course[NUM_CLASSES];
+    struct Student* next;
 };
 
 struct School {
@@ -34,6 +35,12 @@ void free_memory();
 void display_menu();
 void edit_student_info();
 void search_student();
+void print_top_ten(int grade);
+void insert_student_to_list(struct Student** head, struct Student* new_student);
+struct Student* create_student_node(const char* first_name, const char* last_name, const char* telephone, int grades[NUM_CLASSES]);
+void find_candidates_for_departure();
+bool is_candidate_for_departure();
+
 
 // Global variable
 static struct School s;
@@ -391,14 +398,119 @@ void delete_from_db() {
 }
 
 
-void init_db() {
+// Function to create a new student node for the linked list
+struct Student* create_student_node(const char* first_name, const char* last_name, const char* telephone, int grades[NUM_CLASSES]) {
+    struct Student* new_student = (struct Student*)malloc(sizeof(struct Student));
+    if (new_student == NULL) {
+        fprintf(stderr, "Error: Memory allocation failed.\n");
+        exit(EXIT_FAILURE);
+    }
+    strncpy(new_student->first_name, first_name, MAX_LEN);
+    strncpy(new_student->last_name, last_name, MAX_LEN);
+    strncpy(new_student->telephone, telephone, LEVELS);
+    int i;
+    for (i = 0; i < NUM_CLASSES; i++) {
+        new_student->grades[i] = grades[i];
+    }
+    // Initialize Course as NULL for now
+    int j;
+    for (j = 0; j < NUM_CLASSES; j++) {
+        new_student->Course[j] = NULL;
+    }
+    new_student->next = NULL; // Set next pointer to NULL
+    return new_student;
+}
+
+// Function to insert a student into the linked list (sorted by grades)
+void insert_student_to_list(struct Student** head, struct Student* new_student) {
+    if (*head == NULL) {
+        *head = new_student;
+    } else {
+        struct Student* current = *head;
+        struct Student* prev = NULL;
+        while (current != NULL) {
+            // Sort in descending order of grades
+            if (new_student->grades[0] >= current->grades[0]) {
+                new_student->next = current;
+                if (prev != NULL) {
+                    prev->next = new_student;
+                } else {
+                    *head = new_student;
+                }
+                return;
+            }
+            prev = current;
+            current = current->next;
+        }
+        prev->next = new_student;
+    }
+}
+
+
+void print_top_ten(int grade) {
+    if (grade < 0 || grade >= NUM_CLASSES) {
+        printf("Invalid grade index. Grade must be between 0 and %d.\n", NUM_CLASSES - 1);
+        return;
+    }
+
+    printf("Top Ten Students in Grade %c for Subject %c:\n", 'A' + grade, 'A' + grade);
+    printf("-------------------------------------------------\n");
+
+    struct Student* current = s.DB[0][grade]; // Start from the first level
+    int count = 0;
+    while (current != NULL && count < 10) {
+        printf("Name: %s %s | Grade: %d\n", current->first_name, current->last_name, current->grades[grade]);
+        current = current->next;
+        count++;
+    }
+
+    printf("\n");
+}
+
+// Function to check if a student is a candidate for departure
+bool is_candidate_for_departure(const struct Student* student) {
+    int i;
+    for (i = 0; i < NUM_CLASSES; i++) {
+        if (student->grades[i] < 40) {
+            return true;
+        }
+    }
+
+    int total = 0;
+    for (i = 0; i < NUM_CLASSES; i++) {
+        total += student->grades[i];
+    }
+    double average = (double)total / NUM_CLASSES;
+    if (average < 60) {
+        return true;
+    }
+
+    return false;
+}
+
+// Function to find students who are candidates for departure
+void find_candidates_for_departure() {
+    printf("Candidates for Departure:\n");
+    printf("-------------------------\n");
+
     int i, j;
     for (i = 0; i < LEVELS; i++) {
         for (j = 0; j < NUM_CLASSES; j++) {
-            s.DB[i][j] = NULL;
+            struct Student* current = s.DB[i][j];
+            while (current != NULL) {
+                if (is_candidate_for_departure(current)) {
+                    printf("Name: %s %s | Class: %c | Telephone: %s\n",
+                           current->first_name, current->last_name, j + 'A', current->telephone);
+                }
+                current = current->next;
+            }
         }
     }
+
+    printf("\n");
 }
+
+
 
 void print_db() {
     int i, j, k;
