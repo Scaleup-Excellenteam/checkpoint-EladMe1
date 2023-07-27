@@ -28,25 +28,55 @@ struct School {
 void read_db();
 void init_db();
 void insert_to_db();
+void delete_from_db();
 void print_db();
 void free_memory();
+void display_menu();
 
 // Global variable
-struct School s;
+static struct School s;
 
 int main() {
-    // Initialize the database
-    init_db();
-
+	
     // Read from the file
     read_db();
 
-    print_db();
+	display_menu();
 
     // Free allocated memory
     free_memory();
 
     return EXIT_SUCCESS;
+}
+
+void display_menu() {
+    int choice;
+    do {
+        printf("\nMenu\n");
+        printf("1. Admission of a new student\n");
+        printf("2. Deleting a student\n");
+        printf("3. Print database\n");
+        printf("4. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+
+        switch (choice) {
+            case 1:
+                insert_to_db();
+                break;
+            case 2:
+                delete_from_db();
+                break;
+            case 3:
+                print_db();
+                break;
+            case 4:
+                printf("Exiting the program.\n");
+                break;
+            default:
+                printf("Invalid choice. Please try again.\n");
+        }
+    } while (choice != 4);
 }
 
 void read_db() {
@@ -115,6 +145,135 @@ void read_db() {
 
     fclose(fp);
 }
+
+void insert_to_db() {
+    char first_name[MAX_LEN];
+    char last_name[MAX_LEN];
+    char telephone[LEVELS];
+    int level, class_index;
+    int grades[NUM_CLASSES];
+   
+
+    printf("Enter student's first name: ");
+    scanf("%s", first_name);
+
+    printf("Enter student's last name: ");
+    scanf("%s", last_name);
+
+    printf("Enter student's telephone: ");
+    scanf("%s", telephone);
+
+    printf("Enter student's level (1-12): ");
+    scanf("%d", &level);
+
+    if (level < 1 || level > LEVELS) {
+        printf("Invalid level. Level must be between 1 and %d.\n", LEVELS);
+        return;
+    }
+
+    printf("Enter student's class (0-9): ");
+    scanf("%d", &class_index);
+
+    if (class_index < 0 || class_index >= NUM_CLASSES) {
+        printf("Invalid class index. Class must be between 0 and %d.\n", NUM_CLASSES - 1);
+        return;
+    }
+
+    printf("Enter student's grades (up to 10 grades separated by space): ");
+    int i;
+    for (i = 0; i < NUM_CLASSES; i++) {
+        if (scanf("%d", &grades[i]) != 1) {
+            printf("Invalid input for grade. Please enter a valid number.\n");
+            return;
+        }
+        if (grades[i] < 0 || grades[i] > 100) {
+            printf("Invalid grade. Grade must be between 0 and 100.\n");
+            return;
+        }
+    }
+
+    // Allocate memory for the student object
+    struct Student* new_student = (struct Student*)malloc(sizeof(struct Student));
+    if (new_student == NULL) {
+        fprintf(stderr, "Error: Memory allocation failed.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy data to the student object
+    strncpy(new_student->first_name, first_name, MAX_LEN);
+    strncpy(new_student->last_name, last_name, MAX_LEN);
+    strncpy(new_student->telephone, telephone, 12);
+	
+	int c;
+    for (c = 0; c < NUM_CLASSES; c++) {
+        new_student->grades[c] = grades[c];
+    }
+
+    // Initialize Course as NULL for now
+    int j;
+    for (j = 0; j < NUM_CLASSES; j++) {
+        new_student->Course[j] = NULL;
+    }
+
+    // Add the student to the database
+    s.DB[level - 1][class_index] = new_student;
+
+    printf("Student added successfully.\n");
+}
+
+
+void delete_from_db() {
+    char first_name[MAX_LEN];
+    char last_name[MAX_LEN];
+
+    printf("Enter student's first name: ");
+    scanf("%s", first_name);
+
+    printf("Enter student's last name: ");
+    scanf("%s", last_name);
+
+    int level, class_index;
+
+    printf("Enter level of student to delete (1-12): ");
+    scanf("%d", &level);
+
+    if (level < 1 || level > LEVELS) {
+        printf("Invalid level. Level must be between 1 and %d.\n", LEVELS);
+        return;
+    }
+
+    printf("Enter class of student to delete (0-9): ");
+    scanf("%d", &class_index);
+
+    if (class_index < 0 || class_index >= NUM_CLASSES) {
+        printf("Invalid class index. Class must be between 0 and %d.\n", NUM_CLASSES - 1);
+        return;
+    }
+
+    if (s.DB[level - 1][class_index] != NULL) {
+        if (strcmp(s.DB[level - 1][class_index]->first_name, first_name) == 0 &&
+            strcmp(s.DB[level - 1][class_index]->last_name, last_name) == 0) {
+
+            // Free memory for the student's courses
+            int k;
+            for (k = 0; k < NUM_CLASSES; k++) {
+                free(s.DB[level - 1][class_index]->Course[k]);
+                s.DB[level - 1][class_index]->Course[k] = NULL;
+            }
+
+            // Free memory for the student
+            free(s.DB[level - 1][class_index]);
+            s.DB[level - 1][class_index] = NULL;
+
+            printf("Student '%s %s' deleted from class %c.\n", first_name, last_name, class_index + 'A');
+        } else {
+            printf("Student '%s %s' not found in class %c.\n", first_name, last_name, class_index + 'A');
+        }
+    } else {
+        printf("No student found at the specified level and class.\n");
+    }
+}
+
 
 void init_db() {
     int i, j;
