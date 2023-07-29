@@ -2,11 +2,14 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <openssl/evp.h>
+
 
 #define NUM_CLASSES 10
 #define LEVELS 12
 #define MAX_LEN 20
 #define FILE_NAME "students_with_class.txt"
+#define FILE_SAVE "db.txt"
 
 enum course {
     A, B, C, D, E, F, G, H, I, J
@@ -40,7 +43,11 @@ void insert_student_to_list(struct Student** head, struct Student* new_student);
 struct Student* create_student_node(const char* first_name, const char* last_name, const char* telephone, int grades[NUM_CLASSES]);
 void find_candidates_for_departure();
 bool is_candidate_for_departure();
-
+void calculate_average_per_course_per_level();
+void export_db_to_file_encrypted(const char* file_name);
+int encrypt_data(const unsigned char* plaintext, int plaintext_len,
+                 const unsigned char* key, const unsigned char* iv,
+                 unsigned char* ciphertext);
 
 // Global variable
 static struct School s;
@@ -51,7 +58,7 @@ int main() {
     read_db();
 
 	display_menu();
-
+	
     // Free allocated memory
     free_memory();
 
@@ -88,6 +95,7 @@ void display_menu() {
                 print_db();
                 break;
             case 6:
+                export_db_to_file_encrypted(FILE_SAVE);
                 printf("Exiting the program.\n");
                 break;
             default:
@@ -398,6 +406,93 @@ void delete_from_db() {
 }
 
 
+// Function to encrypt data using AES-256 in CBC mode
+int encrypt_data(const unsigned char* plaintext, int plaintext_len,
+                 const unsigned char* key, const unsigned char* iv,
+                 unsigned char* ciphertext) {
+    EVP_CIPHER_CTX* ctx;
+    int len, ciphertext_len;
+
+    // Create and initialize the context
+    if (!(ctx = EVP_CIPHER_CTX_new())) {
+        return -1;
+    }
+
+    // Initialize the encryption operation
+    if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1;
+    }
+
+    // Encrypt the plaintext
+    if (1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len)) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1;
+    }
+    ciphertext_len = len;
+
+    // Finalize the encryption
+    if (1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len)) {
+        EVP_CIPHER_CTX_free(ctx);
+        return -1;
+    }
+    ciphertext_len += len;
+
+    // Clean up
+    EVP_CIPHER_CTX_free(ctx);
+    return ciphertext_len;
+}
+
+// Function to export the entire database to a file (encrypted)
+void export_db_to_file_encrypted(const char* file_name) {
+    FILE* fp;
+    fp = fopen(file_name, "wb");
+    if (fp == NULL) {
+        perror("Error opening file");
+        return;
+    }
+
+    // Sample encryption key and IV (DO NOT use these in production)
+    const unsigned char key[] = "01234567890123456789012345678901"; // 256-bit key
+    const unsigned char iv[] = "1234567890123456";                   // 128-bit IV
+
+    // Buffer to hold the encrypted data
+    unsigned char ciphertext[256];
+
+    int i, j;
+    for (i = 0; i < LEVELS; i++) {
+        for (j = 0; j < NUM_CLASSES; j++) {
+            struct Student* current = s.DB[i][j];
+            while (current != NULL) {
+                // Prepare the data to be encrypted
+                char plaintext[512];
+                int len = snprintf(plaintext, sizeof(plaintext), "%s %s %s %d %d ",
+                                   current->first_name, current->last_name, current->telephone, i + 1, j);
+                int k;
+                for (k = 0; k < NUM_CLASSES; k++) {
+                    len += snprintf(plaintext + len, sizeof(plaintext) - len, "%d ", current->grades[k]);
+                }
+
+                // Encrypt the data and save it to the file
+                int ciphertext_len = encrypt_data((unsigned char*)plaintext, len, key, iv, ciphertext);
+                if (ciphertext_len < 0) {
+                    printf("Encryption failed.\n");
+                    fclose(fp);
+                    return;
+                }
+
+                fwrite(ciphertext, sizeof(unsigned char), ciphertext_len, fp);
+                fwrite("\n", sizeof(unsigned char), 1, fp);
+
+                current = current->next;
+            }
+        }
+    }
+
+    fclose(fp);
+    printf("Database exported and encrypted successfully to file: %s\n", file_name);
+}
+
 // Function to create a new student node for the linked list
 struct Student* create_student_node(const char* first_name, const char* last_name, const char* telephone, int grades[NUM_CLASSES]) {
     struct Student* new_student = (struct Student*)malloc(sizeof(struct Student));
@@ -510,6 +605,46 @@ void find_candidates_for_departure() {
     printf("\n");
 }
 
+// Function to calculate the average grade per course per level
+void calculate_average_per_course_per_level() {
+    
+    double average[NUM_CLASSES][NUM_CLASSES] = {0};
+    int count[NUM_CLASSES][NUM_CLASSES] = {0};
+
+    // Accumulate the grades and count the students for each course and level
+    int i, j;
+    for (i = 0; i < LEVELS; i++) {
+        for (j = 0; j < NUM_CLASSES; j++) {
+            struct Student* current = s.DB[i][j];
+            while (current != NULL) {
+                int k;
+                for (k = 0; k < NUM_CLASSES; k++) {
+                    average[i][k] += current->grades[k];
+                }
+                count[i][j]++;
+                current = current->next;
+            }
+        }
+    }
+
+    // Calculate the average for each course per level and print the results
+    printf("Average Grade per Course per Level:\n");
+    printf("----------------------------------\n");
+
+    for (i = 0; i < LEVELS; i++) {
+        printf("Level %d:\n", i + 1);
+        for (j = 0; j < NUM_CLASSES; j++) {
+            printf("Class %c: ", j + 'A');
+            int k;
+            for (k = 0; k < NUM_CLASSES; k++) {
+                double course_average = (double)average[i][k] / count[i][j];
+                printf("Course %c: %.2f ", k + 'A', course_average);
+            }
+            printf("\n");
+        }
+        printf("\n");
+    }
+}
 
 
 void print_db() {
